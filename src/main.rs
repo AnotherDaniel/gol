@@ -1,12 +1,13 @@
 #![allow(dead_code)]
 //#![allow(unused_variables)]
 
+use std::time::Duration;
 use rand::prelude::*;
 use nannou::prelude::*;
 
 const X: usize = 200;
 const Y: usize = 150;
-
+const R: usize = 10;
 
 struct Model {
     _window: window::Id,
@@ -20,7 +21,7 @@ fn main() {
 fn model(app: &App) -> Model {
     let _window = app.new_window().view(view).build().unwrap();    
     let mut _cells = init_cells_rand();
-
+    app.set_loop_mode(LoopMode::Rate { update_interval: Duration::from_millis(R as u64) } );
 
     Model { _window, _cells  }
 }
