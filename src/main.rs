@@ -5,8 +5,8 @@ use std::time::Duration;
 use rand::prelude::*;
 use nannou::prelude::*;
 
-const X: usize = 200;
-const Y: usize = 150;
+const X: usize = 375;
+const Y: usize = 300;
 const R: usize = 10;
 
 struct Model {
@@ -21,7 +21,7 @@ fn main() {
 fn model(app: &App) -> Model {
     let _window = app.new_window().view(view).build().unwrap();    
     let mut _cells = init_cells_rand();
-    app.set_loop_mode(LoopMode::Rate { update_interval: Duration::from_millis(R as u64) } );
+    //app.set_loop_mode(LoopMode::Rate { update_interval: Duration::from_millis(R as u64) } );
 
     Model { _window, _cells  }
 }
@@ -63,7 +63,7 @@ fn init_cells_mod() -> [[bool; Y]; X] {
 }
 
 fn init_cells_rand() -> [[bool; Y]; X] {
-    let thresh = 0.95;
+    let thresh = 0.022;
     let mut rng = rand::thread_rng();
     let mut cells = [[false; Y]; X];
     
