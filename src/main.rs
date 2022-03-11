@@ -4,50 +4,53 @@ use std::cmp;
 use rand::prelude::*;
 use nannou::prelude::*;
 
-const X: usize = 350;
-const Y: usize = 300;
-const T: f64 = 0.5;
+const X: usize = 384;
+const Y: usize = 256;
+const R: f32 = 0.5;
+const P: u64 = 1010000101;
 
 struct Model {
     _window: window::Id,
     _cells: [[bool; Y]; X],
 }
 
-fn main() {
-    nannou::app(model).update(update).run();
-}
-
-fn model(app: &App) -> Model {
-    let _window = app.new_window().size((X*3) as u32, (Y*3) as u32).view(view).build().unwrap();    
-    let mut _cells = init_cells_rand();
-
-    Model { _window, _cells  }
-}
-
-fn update(_app: &App, _model: &mut Model, _update: Update) {
-    count_neighbours(&mut _model._cells);
-}
-
-fn view(app: &App, _model: &Model, frame: Frame) {
-    let draw = app.draw();
-    let window = app.main_window();
-    let win = window.rect();
-    
-    draw.background().color(WHITE);
-    draw_cells(&win, &draw, &_model._cells);
-    draw.to_frame(app, &frame).unwrap();
-}
-
-fn init_cells_rand() -> [[bool; Y]; X] {
+fn init_cells_rand(threshold: f32) -> [[bool; Y]; X] {
     let mut rng = rand::thread_rng();
     let mut cells = [[false; Y]; X];
     
     for (_, row) in cells.iter_mut().enumerate() {
         for (_, cell) in row.iter_mut().enumerate() {
-            let y: f64 = rng.gen();
-            if y < T {
+            let y: f32 = rng.gen();
+            if y < threshold {
                 *cell = true;
             }  
+        }
+    }
+    return cells
+}
+
+fn init_cells_bitpattern(pattern: u64) -> [[bool; Y]; X] {
+    let mut cells = [[false; Y]; X];
+    
+    for (_, row) in cells.iter_mut().enumerate() {
+        for (j, cell) in row.iter_mut().enumerate() {
+            if pattern >> j%64 > 0 {
+                *cell = true;
+            }
+        }
+    }
+    return cells
+}
+
+fn init_cells_bitrandom() -> [[bool; Y]; X] {
+    let mut cells = [[false; Y]; X];
+    let pattern = rand::thread_rng().gen::<u64>();
+
+    for (_, row) in cells.iter_mut().enumerate() {
+        for (j, cell) in row.iter_mut().enumerate() {
+            if pattern >> j%64 > 0 {
+                *cell = true;
+            }
         }
     }
     return cells
@@ -126,4 +129,31 @@ fn draw_cells(win: &Rect, draw: &Draw, cells: &[[bool; Y]; X]) {
                 .w_h(x_step, y_step);
         }
     }
+}
+
+fn model(app: &App) -> Model {
+    let _window = app.new_window().size((X*3) as u32, (Y*3) as u32).view(view).build().unwrap();    
+//    let mut _cells = init_cells_rand(R);
+    let mut _cells = init_cells_bitpattern(P);
+    let mut _cells = init_cells_bitrandom();
+
+    Model { _window, _cells  }
+}
+
+fn update(_app: &App, _model: &mut Model, _update: Update) {
+    count_neighbours(&mut _model._cells);
+}
+
+fn view(app: &App, _model: &Model, frame: Frame) {
+    let draw = app.draw();
+    let window = app.main_window();
+    let win = window.rect();
+    
+    draw.background().color(WHITE);
+    draw_cells(&win, &draw, &_model._cells);
+    draw.to_frame(app, &frame).unwrap();
+}
+
+fn main() {
+    nannou::app(model).update(update).run();
 }
