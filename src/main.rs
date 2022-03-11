@@ -1,13 +1,12 @@
 #![allow(dead_code)]
-//#![allow(unused_variables)]
 
-use std::time::Duration;
+use std::cmp;
 use rand::prelude::*;
 use nannou::prelude::*;
 
-const X: usize = 375;
+const X: usize = 350;
 const Y: usize = 300;
-const R: usize = 10;
+const T: f64 = 0.5;
 
 struct Model {
     _window: window::Id,
@@ -19,9 +18,8 @@ fn main() {
 }
 
 fn model(app: &App) -> Model {
-    let _window = app.new_window().view(view).build().unwrap();    
+    let _window = app.new_window().size((X*3) as u32, (Y*3) as u32).view(view).build().unwrap();    
     let mut _cells = init_cells_rand();
-    //app.set_loop_mode(LoopMode::Rate { update_interval: Duration::from_millis(R as u64) } );
 
     Model { _window, _cells  }
 }
@@ -40,37 +38,14 @@ fn view(app: &App, _model: &Model, frame: Frame) {
     draw.to_frame(app, &frame).unwrap();
 }
 
-fn init_cells_mod() -> [[bool; Y]; X] {
-    let mut cells = [[false; Y]; X];
-
-    for (i, row) in cells.iter_mut().enumerate() {
-        for (j, cell) in row.iter_mut().enumerate() {
-            if ( i%8 == 0) && (j%6 == 0) {
-                *cell = true;
-            }
-            if ( i%7 == 0) && (j%5 == 0) {
-                *cell = true;
-            }
-            if ( i%6 == 0) && (j%4 == 0) {
-                *cell = true;
-            }
-            if ( i%5 == 0) && (j%3 == 0) {
-                *cell = true;
-            }
-        }
-    }
-    return cells
-}
-
 fn init_cells_rand() -> [[bool; Y]; X] {
-    let thresh = 0.022;
     let mut rng = rand::thread_rng();
     let mut cells = [[false; Y]; X];
     
     for (_, row) in cells.iter_mut().enumerate() {
         for (_, cell) in row.iter_mut().enumerate() {
             let y: f64 = rng.gen();
-            if y > thresh {
+            if y < T {
                 *cell = true;
             }  
         }
@@ -79,66 +54,51 @@ fn init_cells_rand() -> [[bool; Y]; X] {
 }
 
 fn count_neighbours(cells: &mut [[bool; Y]; X]) {
-    let mut live = 0;
+    let mut live;
+    let mut cells_ng: [[bool; Y]; X] = [[false;Y];X];
 
     for i in 0..X {
         for j in 0..Y {
-            if i > 0 && j > 0 {
-                if cells[i-1][j-1] {
-                    live += 1;
-                }
-            }
-            if j > 0 {
-               if cells[i][j-1] {
-                    live += 1;
-                }
-            }
-            if i < cells.len()-1 && j > 0 {
-                if cells[i+1][j-1] {
-                    live += 1;
-                }
-            }
-
-            if i > 0 {
-               if cells[i-1][j] {
-                    live += 1;
-                }
-            }
-            if i < cells.len()-1 {
-               if cells[i+1][j] {
-                    live += 1;
-                }
-            }
-
-            if i > 0 && j < cells[i].len()-1 {
-                if cells[i-1][j+1] {
-                    live += 1;
-                }
-            }
-            if j < cells[i].len()-1 {
-                if cells[i][j+1] {
-                    live += 1;
-                }
-            }
-            if i < cells.len()-1 && j < cells[i].len()-1 {
-                if cells[i+1][j+1] {
-                    live += 1;
+            live = 0;
+            let col_slice = &cells[
+                    (cmp::max(0 as i32, i as i32 - 1) as usize)
+                    ..
+                    cmp::min(X, i+2)
+                ];
+            for col in col_slice {
+                let row_slice = &col[
+                    (cmp::max(0 as i32, j as i32 - 1) as usize)
+                    ..
+                    cmp::min(Y, j+2)
+                ];
+                for row in row_slice {
+                    if *row { live += 1; }
                 }
             }
 
             if cells[i][j] {
-                // 1. Any live cell with two or three live neighbours survives.
-                // 3. All other live cells die in the next generation. Similarly, all other dead cells stay dead.
-                if live < 2 || live > 3 {
-                    cells[i][j] = false;
+                if live == 3 || live == 4 {
+                    // 1. Any live cell with two or three live neighbours survives.
+                    //      NOTE: as we've been counting neighbours PLUS the current cell above, we compare to 3&4 instead of 2&3
+                    cells_ng[i][j] = true;
+                } else {
+                    cells_ng[i][j] = false;
                 }
             } else {
-                // 2. Any dead cell with three live neighbours becomes a live cell.
                 if live == 3 {
-                    cells[i][j] = true;
+                    // 2. Any dead cell with three live neighbours becomes a live cell.
+                    cells_ng[i][j] = true;
+                } else {
+                    // 3. All other live cells die in the next generation. Similarly, all other dead cells stay dead.
+                    cells_ng[i][j] = false;
                 }
             }
-            live = 0;
+        }
+    }
+
+    for i in 0..X {
+        for j in 0..Y {
+            cells[i][j] = cells_ng[i][j];
         }
     }
 }
