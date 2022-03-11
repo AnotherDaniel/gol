@@ -55,11 +55,13 @@ fn init_cells_rand() -> [[bool; Y]; X] {
 
 fn count_neighbours(cells: &mut [[bool; Y]; X]) {
     let mut live;
-    let mut cells_ng: [[bool; Y]; X] = [[false;Y];X];
+    let mut cells_ng: [[bool; Y]; X] = [[false;Y];X];   // this is our next-generation matrix
 
     for i in 0..X {
         for j in 0..Y {
             live = 0;
+
+            // get 3x3 area around current cell via array slices (take care of fringe cell indices), count live neighbours (plus current cell)
             let col_slice = &cells[
                     (cmp::max(0 as i32, i as i32 - 1) as usize)
                     ..
@@ -76,26 +78,27 @@ fn count_neighbours(cells: &mut [[bool; Y]; X]) {
                 }
             }
 
+            // apply Conway game of life rules
             if cells[i][j] {
+                // 1. Any live cell with two or three live neighbours survives.
+                //    NOTE: as we've been counting neighbours PLUS the current cell above, we compare to 3&4 instead of 2&3
                 if live == 3 || live == 4 {
-                    // 1. Any live cell with two or three live neighbours survives.
-                    //      NOTE: as we've been counting neighbours PLUS the current cell above, we compare to 3&4 instead of 2&3
                     cells_ng[i][j] = true;
-                } else {
-                    cells_ng[i][j] = false;
-                }
+                    continue;
+                } 
             } else {
+                // 2. Any dead cell with three live neighbours becomes a live cell.
                 if live == 3 {
-                    // 2. Any dead cell with three live neighbours becomes a live cell.
                     cells_ng[i][j] = true;
-                } else {
-                    // 3. All other live cells die in the next generation. Similarly, all other dead cells stay dead.
-                    cells_ng[i][j] = false;
-                }
+                    continue;
+                } 
             }
+            // 3. All other live cells die in the next generation. Similarly, all other dead cells stay dead.
+            cells_ng[i][j] = false;
         }
     }
 
+    // after counting and assessing next-gen status, copy ng matrix over into current gen
     for i in 0..X {
         for j in 0..Y {
             cells[i][j] = cells_ng[i][j];
