@@ -44,7 +44,7 @@ fn init_cells_bitpattern(pattern: u64) -> [[bool; Y]; X] {
 
 fn init_cells_bitrandom() -> [[bool; Y]; X] {
     let mut cells = [[false; Y]; X];
-    let pattern = rand::thread_rng().gen::<u64>();
+    let pattern = rand::thread_rng().gen::<u32>();
 
     for (_, row) in cells.iter_mut().enumerate() {
         for (j, cell) in row.iter_mut().enumerate() {
@@ -54,6 +54,19 @@ fn init_cells_bitrandom() -> [[bool; Y]; X] {
         }
     }
     return cells
+}
+
+fn model(app: &App) -> Model {
+    let _window = app.new_window().size((X*3) as u32, (Y*3) as u32).view(view).build().unwrap();    
+    let mut _cells = init_cells_rand(R);
+//    let mut _cells = init_cells_bitpattern(P);
+//    let mut _cells = init_cells_bitrandom();
+
+    Model { _window, _cells  }
+}
+
+fn update(_app: &App, _model: &mut Model, _update: Update) {
+    count_neighbours(&mut _model._cells);
 }
 
 fn count_neighbours(cells: &mut [[bool; Y]; X]) {
@@ -129,19 +142,6 @@ fn draw_cells(win: &Rect, draw: &Draw, cells: &[[bool; Y]; X]) {
                 .w_h(x_step, y_step);
         }
     }
-}
-
-fn model(app: &App) -> Model {
-    let _window = app.new_window().size((X*3) as u32, (Y*3) as u32).view(view).build().unwrap();    
-//    let mut _cells = init_cells_rand(R);
-    let mut _cells = init_cells_bitpattern(P);
-    let mut _cells = init_cells_bitrandom();
-
-    Model { _window, _cells  }
-}
-
-fn update(_app: &App, _model: &mut Model, _update: Update) {
-    count_neighbours(&mut _model._cells);
 }
 
 fn view(app: &App, _model: &Model, frame: Frame) {
