@@ -1,15 +1,22 @@
 #![allow(dead_code)]
+#![allow(unused_variables)]
+
+mod thread_pool;
 
 use std::cmp;
+use std::sync::mpsc;
 use rand::prelude::*;
 use nannou::prelude::*;
 
 const X: usize = 384;
 const Y: usize = 256;
-const R: f32 = 0.5;
-const P: u64 = 1010000101;
+const RANDOM_THRESHOLD: f32 = 0.5;
+const PATTERN: u64 = 1010000101;
+const THREADS: usize = 1;
 
 struct Model {
+    _thread_pool: thread_pool::ThreadPool,
+    _resrec: Option<mpsc::Receiver<[[bool; Y]; X]>>,
     _window: window::Id,
     _cells: [[bool; Y]; X],
 }
@@ -48,6 +55,9 @@ fn init_cells_bitrandom() -> [[bool; Y]; X] {
 
     for (_, row) in cells.iter_mut().enumerate() {
         for (j, cell) in row.iter_mut().enumerate() {
+
+            let test = pattern >> j%64;
+
             if pattern >> j%64 > 0 {
                 *cell = true;
             }
@@ -57,16 +67,87 @@ fn init_cells_bitrandom() -> [[bool; Y]; X] {
 }
 
 fn model(app: &App) -> Model {
+    let mut _thread_pool = thread_pool::ThreadPool::new(THREADS);
     let _window = app.new_window().size((X*3) as u32, (Y*3) as u32).view(view).build().unwrap();    
-    let mut _cells = init_cells_rand(R);
-//    let mut _cells = init_cells_bitpattern(P);
-//    let mut _cells = init_cells_bitrandom();
+    let mut _cells = init_cells_rand(RANDOM_THRESHOLD);
+    // let mut _cells = init_cells_bitpattern(PATTERN);
+    // let mut _cells = init_cells_bitrandom();
 
-    Model { _window, _cells  }
+    Model { _thread_pool, _window, _cells, _resrec: None  }
 }
 
 fn update(_app: &App, _model: &mut Model, _update: Update) {
-    count_neighbours(&mut _model._cells);
+    // count_neighbours(&mut _model._cells);
+
+    // copy current biome into local var
+    let mut cells: [[bool; Y]; X] = [[false;Y];X];
+    for i in 0..X {
+        for j in 0..Y {
+            cells[i][j] = _model._cells[i][j];
+        }
+    }
+
+    // grab biome computed by last execution-command to thread pool
+    match _model._resrec {
+        Some(_) => { _model._cells = _model._resrec.as_ref().unwrap().recv().unwrap(); },
+        None => {},
+    }
+
+    // setup result send channel
+    let (sender, receiver) = mpsc::channel();
+    _model._resrec = Some(receiver);
+
+    // kick off new biome calc
+    _model._thread_pool.execute(move || { 
+        count_neighbours_ret(cells, sender); 
+    });
+}
+
+fn count_neighbours_ret(cells: [[bool; Y]; X], sender: mpsc::Sender<[[bool; Y]; X]>) {
+    let mut live;
+    let mut cells_ng: [[bool; Y]; X] = [[false;Y];X];   // this is our next-generation matrix
+
+    for i in 0..X {
+        for j in 0..Y {
+            live = 0;
+
+            // get 3x3 area around current cell via array slices (take care of fringe cell indices), count live neighbours (plus current cell)
+            let col_slice = &cells[
+                    (cmp::max(0 as i32, i as i32 - 1) as usize)
+                    ..
+                    cmp::min(X, i+2)
+                ];
+            for col in col_slice {
+                let row_slice = &col[
+                    (cmp::max(0 as i32, j as i32 - 1) as usize)
+                    ..
+                    cmp::min(Y, j+2)
+                ];
+                for row in row_slice {
+                    if *row { live += 1; }
+                }
+            }
+
+            // apply Conway game of life rules
+            if cells[i][j] {
+                // 1. Any live cell with two or three live neighbours survives.
+                //    NOTE: as we've been counting neighbours PLUS the current cell above, we compare to 3&4 instead of 2&3
+                if live == 3 || live == 4 {
+                    cells_ng[i][j] = true;
+                    continue;
+                } 
+            } else {
+                // 2. Any dead cell with three live neighbours becomes a live cell.
+                if live == 3 {
+                    cells_ng[i][j] = true;
+                    continue;
+                } 
+            }
+            // 3. All other live cells die in the next generation. Similarly, all other dead cells stay dead.
+            cells_ng[i][j] = false;
+        }
+    }
+    sender.send(cells_ng).unwrap();
 }
 
 fn count_neighbours(cells: &mut [[bool; Y]; X]) {
